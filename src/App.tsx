@@ -13,6 +13,7 @@ import pierroDella from "./images/pierro_della.jpg";
 function App() {
   // Store state of whether cv is loaded
   const [cvLoaded, setCVLoaded] = React.useState(false);
+  const imageRef = React.useRef(null);
   const [imageDimensions, setImageDimensions] = React.useState({
     width: 0,
     height: 0,
@@ -33,35 +34,67 @@ function App() {
 
   // Create Canvas size based on image size
   const onImageLoad = ({ target: image }: { target: any }) => {
-    console.log("Image Dimensions", {
-      width: image.offsetWidth,
-      height: image.offsetHeight,
-    });
-
     setImageDimensions({
       width: image.offsetWidth,
       height: image.offsetHeight,
     });
+
   };
 
   const generateImage = () => {
+    // Map opencv to cv2
     const cv2 = cv;
+
+    // Define src and dest points
     const srcPts = new cv2.matFromArray(4, 2, cv.CV_32FC1, [
-      rect.x, rect.y,
-      rect.x+rect.width, rect.y,
-      rect.x, rect.y+rect.height,
-      rect.x+rect.width, rect.y+rect.height,
+      rect.x,
+      rect.y,
+      rect.x + rect.width,
+      rect.y,
+      rect.x,
+      rect.y + rect.height,
+      rect.x + rect.width,
+      rect.y + rect.height,
     ]);
+
     const destPts = new cv2.matFromArray(4, 2, cv.CV_32FC1, [
-      0, 0,
-      canvasRef.current.width, 0,
-      0, canvasRef.current.height,
-      canvasRef.current.width, canvasRef.current.height,
+      0,
+      0,
+      canvasRef.current.width,
+      0,
+      0,
+      canvasRef.current.height,
+      canvasRef.current.width,
+      canvasRef.current.height,
     ]);
-    console.log("Src Pts", srcPts);
-    console.log("Dest Pts", destPts);
+
+    // console.log("Src Pts", srcPts);
+    // console.log("Dest Pts", destPts);
     const homogM = cv2.getPerspectiveTransform(srcPts, destPts);
-    console.log("Homography", homogM);
+    // console.log("Homography", homogM);
+    const image = cv2.imread(imageRef.current);
+    console.log("Image", image);
+    const dsize = new cv.Size(imageDimensions.width, imageDimensions.height);
+    let dst = new cv.Mat();
+
+    cv2.warpPerspective(
+      image,
+      dst,
+      homogM,
+      dsize,
+      cv2.INTER_LINEAR,
+      cv2.BORDER_CONSTANT,
+      new cv.Scalar()
+    );
+
+    cv2.imshow("canvasOutput", dst);
+
+    console.log(dst);
+    srcPts.delete();
+    destPts.delete();
+    homogM.delete();
+    image.delete();
+    dst.delete();
   };
 
   /* START REACT CANVAS DRAWING CODE HERE */
@@ -81,8 +114,8 @@ function App() {
   }, [canvasRef.current]);
 
   const handleMouseDown = (e) => {
-    const ctx = canvasRef.current.getContext("2d");
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    // const ctx = canvasRef.current.getContext("2d");
+    // ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
     const rectRef = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rectRef.left;
@@ -158,17 +191,20 @@ function App() {
             }}
           >
             <img
+              ref={imageRef}
               style={{
                 maxHeight: "100%",
                 maxWidth: "100%",
                 ponterEvents: "none",
                 zIndex: 1,
+                // visibility: "hidden",
               }}
               src={pierroDella}
               onLoad={onImageLoad}
               onDragStart={() => {}}
             />
             <canvas
+              id="canvasInput"
               style={{
                 position: "absolute",
                 zIndex: 2,
@@ -187,8 +223,23 @@ function App() {
             style={{
               maxHeight: "80%",
               maxWidth: "100%",
+              position: "relative",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              paddingTop: "2%",
             }}
-          ></Grid>
+          >
+            <canvas
+              id="canvasOutput"
+              style={{
+                position: "absolute",
+                zIndex: 2,
+              }}
+              height={imageDimensions.height}
+              width={imageDimensions.width}
+            />
+          </Grid>
           <Grid size={12}>
             <Button onClick={generateImage}>Generate</Button>
           </Grid>
